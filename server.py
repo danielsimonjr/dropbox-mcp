@@ -25,7 +25,7 @@ from mcp.server.fastmcp import FastMCP
 
 DROPBOX_ROOT = Path(os.environ.get("DROPBOX_LOCAL_PATH", str(Path.home() / "Dropbox")))
 
-mcp = FastMCP("dropbox")
+mcp = FastMCP("dropbox_mcp")
 
 
 def get_client():
@@ -149,9 +149,7 @@ def dropbox_file_info(path: str) -> str:
                 "path": meta.path_display,
                 "size": meta.size,
                 "size_mb": round(meta.size / (1024 * 1024), 2),
-                "modified": meta.server_modified.isoformat()
-                if meta.server_modified
-                else None,
+                "modified": meta.server_modified.isoformat() if meta.server_modified else None,
                 "rev": meta.rev,
                 "content_hash": meta.content_hash,
             },
@@ -171,12 +169,8 @@ def dropbox_list_revisions(path: str, limit: int = 10) -> str:
         return f"No revisions found for {path}"
     lines = [f"Revisions for {path} ({len(result.entries)} found):"]
     for entry in result.entries:
-        modified = (
-            entry.server_modified.isoformat() if entry.server_modified else "unknown"
-        )
-        lines.append(
-            f"  rev: {entry.rev}  size: {entry.size:>10,} bytes  modified: {modified}"
-        )
+        modified = entry.server_modified.isoformat() if entry.server_modified else "unknown"
+        lines.append(f"  rev: {entry.rev}  size: {entry.size:>10,} bytes  modified: {modified}")
     return "\n".join(lines)
 
 

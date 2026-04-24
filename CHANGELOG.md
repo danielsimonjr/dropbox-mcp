@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-04-23
+
+### Changed
+- Server-reported FastMCP name is now `dropbox_mcp` (was `dropbox`) to match
+  the `{service}_mcp` naming convention from the MCP Python guide. This does
+  not affect the client-side `.mcp.json` alias, which can still be any name
+  the user prefers.
+
 ## [0.1.0] - 2026-04-23
 
 Initial public release.
