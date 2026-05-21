@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  padLeft, withCommas, bytesToMb,
+  padLeft, withCommas, bytesToMb, pyFloat,
   formatSearch, formatListDeleted, formatListRevisions,
+  formatFileInfo, formatRestoreBatch,
 } from "../src/format.js";
 
 describe("number helpers", () => {
@@ -53,5 +54,47 @@ describe("formatListRevisions", () => {
     expect(out).toBe(
       "Revisions for /r.docx (1 found):\n  rev: 0abc  size:  1,234,567 bytes  modified: 2026-02-10T00:00:00Z",
     );
+  });
+});
+
+describe("pyFloat", () => {
+  it("renders whole numbers with a trailing .0", () => {
+    expect(pyFloat(1)).toBe("1.0");
+    expect(pyFloat(2)).toBe("2.0");
+  });
+  it("renders fractional numbers as-is", () => {
+    expect(pyFloat(1.25)).toBe("1.25");
+    expect(pyFloat(1.5)).toBe("1.5");
+  });
+});
+
+describe("formatSearch whole-MB parity", () => {
+  it("renders a whole-MB size with .0", () => {
+    const out = formatSearch("q", [
+      { path: "/f", size_mb: 1, modified: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(out).toBe("Found 1 results for 'q':\n       1.0 MB  2026-01-01  /f");
+  });
+});
+
+describe("formatFileInfo", () => {
+  it("renders a whole-number size_mb as a Python-style float", () => {
+    const out = formatFileInfo({ path: "/f", size: 2097152, size_mb: 2, rev: "0r" });
+    expect(out).toContain('"size_mb": 2.0');
+  });
+  it("renders a fractional size_mb normally", () => {
+    expect(formatFileInfo({ path: "/f", size_mb: 1.25 })).toContain('"size_mb": 1.25');
+  });
+  it("handles objects without size_mb (folder case)", () => {
+    expect(formatFileInfo({ path: "/d", type: "folder" })).toBe(
+      '{\n  "path": "/d",\n  "type": "folder"\n}',
+    );
+  });
+});
+
+describe("formatRestoreBatch", () => {
+  it("joins per-path lines and appends a blank-line-separated total", () => {
+    const out = formatRestoreBatch(["  RESTORED: /a", "  NO REVISIONS: /b"], 1, 2);
+    expect(out).toBe("  RESTORED: /a\n  NO REVISIONS: /b\n\nRestored: 1/2");
   });
 });

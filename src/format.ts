@@ -13,6 +13,11 @@ export function bytesToMb(bytes: number): number {
   return Math.round((bytes / (1024 * 1024)) * 100) / 100;
 }
 
+/** Render a number like Python's float repr: whole numbers keep one decimal (1 -> "1.0"). */
+export function pyFloat(n: number): string {
+  return Number.isInteger(n) ? n.toFixed(1) : String(n);
+}
+
 export interface SearchMatch { path: string; size_mb: number; modified: string; }
 export interface RevisionEntry { rev: string; size: number; modified: string; }
 
@@ -36,7 +41,7 @@ export function formatSearch(query: string, matches: SearchMatch[]): string {
   if (matches.length === 0) return `No results for '${query}'`;
   const lines = [`Found ${matches.length} results for '${query}':`];
   for (const m of matches) {
-    lines.push(`  ${padLeft(m.size_mb, 8)} MB  ${m.modified.slice(0, 10)}  ${m.path}`);
+    lines.push(`  ${padLeft(pyFloat(m.size_mb), 8)} MB  ${m.modified.slice(0, 10)}  ${m.path}`);
   }
   return lines.join("\n");
 }
@@ -58,7 +63,14 @@ export function formatListRevisions(path: string, entries: RevisionEntry[]): str
   return lines.join("\n");
 }
 
-/** file_info: JSON, 2-space indent (Python json.dumps(indent=2)). */
+/** file_info: JSON, 2-space indent (Python json.dumps(indent=2)).
+ *  `size_mb`, when present, is rendered as a Python-style float (whole numbers keep ".0"). */
 export function formatFileInfo(obj: Record<string, unknown>): string {
-  return JSON.stringify(obj, null, 2);
+  if (typeof obj.size_mb !== "number") {
+    return JSON.stringify(obj, null, 2);
+  }
+  const SENTINEL = "@@DROPBOX_MCP_SIZE_MB@@";
+  const token = pyFloat(obj.size_mb);
+  const json = JSON.stringify({ ...obj, size_mb: SENTINEL }, null, 2);
+  return json.replace(`"${SENTINEL}"`, token);
 }
