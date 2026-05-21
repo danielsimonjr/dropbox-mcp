@@ -94,6 +94,12 @@ export const TOOLS: Tool[] = [
 
 export type ToolHandler = (client: Dropbox, config: DropboxConfig, rawArgs: unknown) => Promise<string>;
 
+/** Render a Dropbox timestamp like Python's datetime.isoformat(): the Python SDK
+ *  parses server_modified to a naive datetime, so the trailing 'Z' is dropped. */
+function pyTimestamp(iso: string): string {
+  return iso.replace(/Z$/, "");
+}
+
 async function handleSearch(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
   const { query, path, max_results } = z
     .object({ query: z.string(), path: z.string().default(""), max_results: z.number().default(20) })
@@ -141,7 +147,7 @@ async function handleFileInfo(client: Dropbox, _c: DropboxConfig, raw: unknown):
       path: meta.path_display,
       size: meta.size,
       size_mb: bytesToMb(meta.size),
-      modified: meta.server_modified ?? null,
+      modified: meta.server_modified ? pyTimestamp(meta.server_modified) : null,
       rev: meta.rev,
       content_hash: meta.content_hash ?? null,
     });
@@ -160,7 +166,7 @@ async function handleListRevisions(client: Dropbox, _c: DropboxConfig, raw: unkn
   return formatListRevisions(
     path,
     res.result.entries.map((e) => ({
-      rev: e.rev, size: e.size, modified: e.server_modified ?? "unknown",
+      rev: e.rev, size: e.size, modified: e.server_modified ? pyTimestamp(e.server_modified) : "unknown",
     })),
   );
 }

@@ -17,7 +17,7 @@ describe("handleFileInfo", () => {
     });
     const out = await HANDLERS["dropbox_file_info"](client, config, { path: "/a.txt" });
     expect(JSON.parse(out)).toEqual({
-      path: "/a.txt", size: 2097152, size_mb: 2, modified: "2026-01-01T00:00:00Z",
+      path: "/a.txt", size: 2097152, size_mb: 2, modified: "2026-01-01T00:00:00",
       rev: "0r", content_hash: "h",
     });
   });
@@ -33,6 +33,8 @@ describe("handleListRevisions", () => {
     const out = await HANDLERS["dropbox_list_revisions"](client, config, { path: "/a.txt" });
     expect(out).toContain("Revisions for /a.txt (1 found):");
     expect(out).toContain("rev: 0r");
+    expect(out).toContain("modified: 2026-01-01T00:00:00");
+    expect(out).not.toContain("2026-01-01T00:00:00Z");
   });
 });
 
