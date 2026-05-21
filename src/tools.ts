@@ -2,8 +2,11 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Dropbox } from "dropbox";
 import type { DropboxConfig } from "./dropbox.js";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   bytesToMb, formatSearch, formatListDeleted, formatFileInfo, formatListRevisions,
+  formatRestore, formatRestoreBatch, formatRestoreRevision, formatDownload,
   type SearchMatch,
 } from "./format.js";
 
@@ -171,7 +174,58 @@ async function handleListRevisions(client: Dropbox, _c: DropboxConfig, raw: unkn
   );
 }
 
+async function handleRestore(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path } = z.object({ path: z.string() }).parse(raw);
+  const revs = await client.filesListRevisions({ path, limit: 5 });
+  if (revs.result.entries.length === 0) return `No revisions found for ${path}`;
+  const rev = revs.result.entries[0].rev;
+  const res = await client.filesRestore({ path, rev });
+  return formatRestore(path, rev, res.result.size);
+}
+
+async function handleRestoreBatch(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { paths } = z.object({ paths: z.array(z.string()) }).parse(raw);
+  const lines: string[] = [];
+  for (const path of paths) {
+    try {
+      const revs = await client.filesListRevisions({ path, limit: 5 });
+      if (revs.result.entries.length > 0) {
+        await client.filesRestore({ path, rev: revs.result.entries[0].rev });
+        lines.push(`  RESTORED: ${path}`);
+      } else {
+        lines.push(`  NO REVISIONS: ${path}`);
+      }
+    } catch (e) {
+      lines.push(`  ERROR: ${path} -> ${String(e instanceof Error ? e.message : e).slice(0, 100)}`);
+    }
+  }
+  const restored = lines.filter((l) => l.includes("RESTORED")).length;
+  return formatRestoreBatch(lines, restored, paths.length);
+}
+
+async function handleRestoreRevision(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path, rev } = z.object({ path: z.string(), rev: z.string() }).parse(raw);
+  const res = await client.filesRestore({ path, rev });
+  return formatRestoreRevision(path, rev, res.result.size);
+}
+
+async function handleDownload(client: Dropbox, config: DropboxConfig, raw: unknown): Promise<string> {
+  const { path } = z.object({ path: z.string() }).parse(raw);
+  const localPath = join(config.localPath, path.replace(/^\/+/, ""));
+  mkdirSync(dirname(localPath), { recursive: true });
+  const res = await client.filesDownload({ path });
+  // On Node the download payload carries `fileBinary` (a Buffer) injected at runtime,
+  // but the SDK types only declare FileMetadata. Cast through unknown first.
+  const data = (res.result as unknown as { fileBinary: Buffer }).fileBinary;
+  writeFileSync(localPath, data);
+  return formatDownload(path, localPath, res.result.size);
+}
+
 export const HANDLERS: Record<string, ToolHandler> = {
+  dropbox_restore: handleRestore,
+  dropbox_restore_batch: handleRestoreBatch,
+  dropbox_restore_revision: handleRestoreRevision,
+  dropbox_download: handleDownload,
   dropbox_search: handleSearch,
   dropbox_list_deleted: handleListDeleted,
   dropbox_file_info: handleFileInfo,
