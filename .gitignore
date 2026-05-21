@@ -52,3 +52,6 @@ htmlcov/
 # OS
 Thumbs.db
 desktop.ini
+
+node_modules/
+coverage/
