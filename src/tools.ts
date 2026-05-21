@@ -1,4 +1,11 @@
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
+import type { Dropbox } from "dropbox";
+import type { DropboxConfig } from "./dropbox.js";
+import {
+  bytesToMb, formatSearch, formatListDeleted, formatFileInfo, formatListRevisions,
+  type SearchMatch,
+} from "./format.js";
 
 const str = (description: string) => ({ type: "string" as const, description });
 const ro = { readOnlyHint: true };
@@ -84,3 +91,83 @@ export const TOOLS: Tool[] = [
     annotations: ro,
   },
 ];
+
+export type ToolHandler = (client: Dropbox, config: DropboxConfig, rawArgs: unknown) => Promise<string>;
+
+async function handleSearch(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { query, path, max_results } = z
+    .object({ query: z.string(), path: z.string().default(""), max_results: z.number().default(20) })
+    .parse(raw);
+  const res = await client.filesSearchV2({
+    query,
+    options: { path, max_results: Math.min(max_results, 100), file_status: { ".tag": "active" } },
+  });
+  const matches: SearchMatch[] = [];
+  for (const m of res.result.matches) {
+    if (m.metadata[".tag"] !== "metadata") continue;
+    const meta = m.metadata.metadata;
+    if (meta[".tag"] === "file") {
+      matches.push({
+        path: meta.path_display ?? "",
+        size_mb: bytesToMb(meta.size),
+        modified: meta.server_modified ?? "unknown",
+      });
+    }
+  }
+  return formatSearch(query, matches);
+}
+
+async function handleListDeleted(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path, recursive } = z
+    .object({ path: z.string(), recursive: z.boolean().default(false) })
+    .parse(raw);
+  const deleted: string[] = [];
+  let res = await client.filesListFolder({ path, recursive, include_deleted: true });
+  for (;;) {
+    for (const e of res.result.entries) {
+      if (e[".tag"] === "deleted" && e.path_display) deleted.push(e.path_display);
+    }
+    if (!res.result.has_more) break;
+    res = await client.filesListFolderContinue({ cursor: res.result.cursor });
+  }
+  return formatListDeleted(path, deleted);
+}
+
+async function handleFileInfo(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path } = z.object({ path: z.string() }).parse(raw);
+  const meta = (await client.filesGetMetadata({ path })).result;
+  if (meta[".tag"] === "file") {
+    return formatFileInfo({
+      path: meta.path_display,
+      size: meta.size,
+      size_mb: bytesToMb(meta.size),
+      modified: meta.server_modified ?? null,
+      rev: meta.rev,
+      content_hash: meta.content_hash ?? null,
+    });
+  }
+  if (meta[".tag"] === "folder") {
+    return formatFileInfo({ path: meta.path_display, type: "folder" });
+  }
+  return `Unknown metadata type for ${path}`;
+}
+
+async function handleListRevisions(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path, limit } = z
+    .object({ path: z.string(), limit: z.number().default(10) })
+    .parse(raw);
+  const res = await client.filesListRevisions({ path, limit: Math.min(limit, 100) });
+  return formatListRevisions(
+    path,
+    res.result.entries.map((e) => ({
+      rev: e.rev, size: e.size, modified: e.server_modified ?? "unknown",
+    })),
+  );
+}
+
+export const HANDLERS: Record<string, ToolHandler> = {
+  dropbox_search: handleSearch,
+  dropbox_list_deleted: handleListDeleted,
+  dropbox_file_info: handleFileInfo,
+  dropbox_list_revisions: handleListRevisions,
+};
