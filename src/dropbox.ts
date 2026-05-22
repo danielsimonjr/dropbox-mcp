@@ -26,20 +26,22 @@ export function parseEnv(text: string): Record<string, string> {
 
 const ENV_PATH = join(homedir(), ".claude", "channels", "dropbox", ".env");
 
-/** Load credentials from ~/.claude/channels/dropbox/.env (missing file -> empty config). */
+/** Load credentials. Mirrors the Python server's os.environ behaviour:
+ *  process.env wins; the ~/.claude/channels/dropbox/.env file fills any gaps. */
 export function loadConfig(): DropboxConfig {
-  let env: Record<string, string> = {};
+  let fileEnv: Record<string, string> = {};
   try {
-    env = parseEnv(readFileSync(ENV_PATH, "utf8"));
+    fileEnv = parseEnv(readFileSync(ENV_PATH, "utf8"));
   } catch {
-    // No .env file - fall through with empty values; getClient will fail clearly.
+    // No .env file — fall through to process.env / defaults.
   }
+  const get = (key: string): string | undefined => process.env[key] ?? fileEnv[key];
   return {
-    refreshToken: env.DROPBOX_REFRESH_TOKEN ?? "",
-    appKey: env.DROPBOX_APP_KEY ?? "",
-    appSecret: env.DROPBOX_APP_SECRET ?? "",
-    accessToken: env.DROPBOX_ACCESS_TOKEN ?? "",
-    localPath: env.DROPBOX_LOCAL_PATH ?? join(homedir(), "Dropbox"),
+    refreshToken: get("DROPBOX_REFRESH_TOKEN") ?? "",
+    appKey: get("DROPBOX_APP_KEY") ?? "",
+    appSecret: get("DROPBOX_APP_SECRET") ?? "",
+    accessToken: get("DROPBOX_ACCESS_TOKEN") ?? "",
+    localPath: get("DROPBOX_LOCAL_PATH") ?? join(homedir(), "Dropbox"),
   };
 }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { parseEnv, getClient, loadConfig, type DropboxConfig } from "../src/dropbox.js";
 
@@ -61,6 +61,22 @@ describe("getClient", () => {
 });
 
 describe("loadConfig", () => {
+  const DBX_KEYS = [
+    "DROPBOX_REFRESH_TOKEN", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET",
+    "DROPBOX_ACCESS_TOKEN", "DROPBOX_LOCAL_PATH",
+  ];
+  let saved: Record<string, string | undefined>;
+  beforeEach(() => {
+    saved = {};
+    for (const k of DBX_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+  });
+  afterEach(() => {
+    for (const k of DBX_KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
   it("returns empty credentials and a default localPath when .env is missing", () => {
     vi.mocked(readFileSync).mockImplementation(() => {
       const err = new Error("ENOENT: no such file") as NodeJS.ErrnoException;
@@ -89,5 +105,16 @@ describe("loadConfig", () => {
       refreshToken: "rt", appKey: "ak", appSecret: "as",
       accessToken: "at", localPath: "D:\\DropboxCustom",
     });
+  });
+
+  it("process.env takes precedence over the .env file", () => {
+    process.env.DROPBOX_ACCESS_TOKEN = "from-process-env";
+    vi.mocked(readFileSync).mockImplementation(() => "DROPBOX_ACCESS_TOKEN=from-file");
+    expect(loadConfig().accessToken).toBe("from-process-env");
+  });
+
+  it("falls back to the .env file when process.env lacks the key", () => {
+    vi.mocked(readFileSync).mockImplementation(() => "DROPBOX_APP_KEY=from-file");
+    expect(loadConfig().appKey).toBe("from-file");
   });
 });
