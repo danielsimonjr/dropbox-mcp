@@ -119,7 +119,7 @@ async function handleSearch(client: Dropbox, _c: DropboxConfig, raw: unknown): P
       matches.push({
         path: meta.path_display ?? "",
         size_mb: bytesToMb(meta.size),
-        modified: meta.server_modified ?? "unknown",
+        modified: meta.server_modified ? pyTimestamp(meta.server_modified) : "unknown",
       });
     }
   }
