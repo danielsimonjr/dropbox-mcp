@@ -1,8 +1,8 @@
 # dropbox-mcp
 
-An MCP (Model Context Protocol) server that exposes the Dropbox API as tools for LLM
-agents. Built on [FastMCP](https://github.com/modelcontextprotocol/python-sdk) and
-[dropbox-sdk-python](https://github.com/dropbox/dropbox-sdk-python).
+An MCP (Model Context Protocol) server that exposes the Dropbox API as tools for
+LLM agents. Built on the [TypeScript MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)
+and the official [`dropbox`](https://www.npmjs.com/package/dropbox) npm SDK.
 
 Focus: **recovery and discovery on an existing Dropbox account** — restoring deleted
 files, listing revisions, searching content, and force-downloading cloud-only files.
@@ -26,16 +26,13 @@ All tool names are prefixed `dropbox_` to avoid collisions with other MCP server
 | `dropbox_file_info` | Return size, modified time, revision ID, and content hash for a path. | Yes |
 | `dropbox_list_revisions` | List up to 100 revisions of a file with rev ID, size, and modified time. | Yes |
 
-Read-only tools are safe to call freely. The four restore/download tools mutate state
-on Dropbox servers or local disk.
-
 ---
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.10 or newer
+- Node.js 24 or newer
 - A Dropbox account and a [Dropbox app](https://www.dropbox.com/developers/apps)
   with `files.content.read`, `files.content.write`, and `files.metadata.read` scopes
 
@@ -44,21 +41,20 @@ on Dropbox servers or local disk.
 ```bash
 git clone https://github.com/danielsimonjr/dropbox-mcp.git
 cd dropbox-mcp
-pip install -e .
+npm install
+npm run build
 ```
 
-Or, for dependencies only:
-
-```bash
-pip install -r requirements.txt
-```
+The build emits `dist/index.js`, which is the entry point used below.
 
 ---
 
 ## Authentication
 
-The server loads credentials from `~/.claude/channels/dropbox/.env` on startup. Create
-that file and paste in the template below, then fill in your values:
+The server loads credentials from `~/.claude/channels/dropbox/.env` on startup,
+with `process.env` taking precedence over the file (so the MCP host can override
+via `.mcp.json` `env`). Create the file and paste in the template below, then
+fill in your values:
 
 ```bash
 mkdir -p ~/.claude/channels/dropbox
@@ -92,8 +88,7 @@ Two auth modes are supported, tried in order:
    `DROPBOX_APP_KEY`, and `DROPBOX_APP_SECRET`. Access tokens are refreshed
    automatically, so credentials do not expire.
 2. **Legacy long-lived access token (fallback):** set `DROPBOX_ACCESS_TOKEN` only.
-   Simpler to get from the app console, but tokens expire after a few hours for
-   newer apps.
+   Simpler to obtain, but tokens expire after a few hours for newer apps.
 
 ---
 
@@ -102,42 +97,36 @@ Two auth modes are supported, tried in order:
 ### Directly (for testing)
 
 ```bash
-python server.py
+node dist/index.js
 ```
 
-The server communicates over stdio, so there is no interactive output — it waits for
-MCP protocol messages on stdin.
+The server communicates over stdio, so there is no interactive output — it waits
+for MCP protocol messages on stdin. On connect it logs `"dropbox-mcp: connected
+on stdio"` to stderr.
 
 ### With the MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector python server.py
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
-
-This opens a browser UI where you can list tools and call them manually.
 
 ### Registering with Claude Code
 
-Add an entry to your `~/.claude/.mcp.json`:
+Add an entry to your `.mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "dropbox": {
-      "command": "python",
-      "args": [
-        "-X", "utf8",
-        "C:\\path\\to\\dropbox-mcp\\server.py"
-      ]
+    "dropbox-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:/path/to/dropbox-mcp/dist/index.js"]
     }
   }
 }
 ```
 
-The `-X utf8` flag is recommended on Windows so that non-ASCII paths in results do
-not trip up the default `cp1252` encoding.
-
-Restart Claude Code for the registration to take effect.
+Restart Claude Code (or run `/reload-plugins`) for the registration to take effect.
 
 ---
 
@@ -173,12 +162,10 @@ Agent: dropbox_restore_revision(path="/report.docx", rev="0123abc")
 
 - The `.env` file holds long-lived credentials — keep it out of version control
   (the default `.gitignore` already excludes `.env` files).
-- Restore and download tools are **not** idempotent from the user's perspective:
-  they mutate Dropbox state or overwrite local files. Agents should confirm
-  intent before invoking them, especially `dropbox_restore_batch`.
-- The server binds to no network ports — communication is stdio only, so there is
-  no inbound attack surface from the MCP layer itself. The only outbound
-  connection is to `api.dropbox.com` via HTTPS.
+- Restore and download tools mutate Dropbox state or overwrite local files.
+  Agents should confirm intent before invoking them, especially `dropbox_restore_batch`.
+- The server binds to no network ports — communication is stdio only. The only
+  outbound connection is to `api.dropbox.com` over HTTPS.
 - Logs go to stderr, never stdout (stdout is reserved for MCP protocol frames).
 
 ---
@@ -186,12 +173,13 @@ Agent: dropbox_restore_revision(path="/report.docx", rev="0123abc")
 ## Development
 
 ```bash
-# Syntax check
-python -m py_compile server.py
-
-# Quick smoke test (lists registered tools)
-npx @modelcontextprotocol/inspector python server.py
+npm run typecheck   # tsc --noEmit
+npm test            # vitest run (full suite)
+npm run build       # emit dist/
 ```
+
+The test suite covers config loading, every output formatter, the 8 tool handlers
+(both read-only and mutating), and a smoke test asserting `TOOLS↔HANDLERS` symmetry.
 
 For changes to the tool surface, update both this README and `CHANGELOG.md` in the
 same commit.
