@@ -9,7 +9,7 @@ const config = loadConfig();
 const client = getClient(config);
 
 const server = new Server(
-  { name: "dropbox_mcp", version: "0.3.0" },
+  { name: "dropbox_mcp", version: "0.3.1" },
   { capabilities: { tools: {} } },
 );
 

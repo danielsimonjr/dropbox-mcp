@@ -86,6 +86,28 @@ describe("handleUpload", () => {
     expect((seen.mode as { ".tag": string })[".tag"]).toBe("overwrite");
     expect(out).toContain("mode: overwrite");
   });
+  it("translates an add-mode 409 conflict into an actionable message", async () => {
+    const client = fake({
+      filesUpload: async () => {
+        const err = new Error("Response failed with a 409 code") as Error & { status: number };
+        err.status = 409;
+        throw err;
+      },
+    });
+    await expect(
+      HANDLERS["dropbox_upload"](client, config, { path: "/a.txt" }),
+    ).rejects.toThrow(/Destination already exists.*mode="overwrite"/s);
+  });
+  it("does not swallow non-conflict upload errors", async () => {
+    const client = fake({
+      filesUpload: async () => {
+        throw new Error("network down");
+      },
+    });
+    await expect(
+      HANDLERS["dropbox_upload"](client, config, { path: "/a.txt" }),
+    ).rejects.toThrow(/network down/);
+  });
 });
 
 describe("handleMove", () => {

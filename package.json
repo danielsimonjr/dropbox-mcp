@@ -1,6 +1,6 @@
 {
   "name": "dropbox-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server exposing Dropbox file recovery, search, download, upload, move, and delete operations to LLM agents.",
   "type": "module",
   "main": "./dist/index.js",

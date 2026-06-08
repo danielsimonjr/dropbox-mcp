@@ -279,8 +279,24 @@ async function handleUpload(client: Dropbox, config: DropboxConfig, raw: unknown
         `Use the Dropbox desktop client or a chunked-upload session for files this size.`,
     );
   }
-  const res = await client.filesUpload({ path, contents: data, mode: { ".tag": mode } });
-  return formatUpload(res.result.path_display ?? path, res.result.size, mode);
+  try {
+    const res = await client.filesUpload({ path, contents: data, mode: { ".tag": mode } });
+    return formatUpload(res.result.path_display ?? path, res.result.size, mode);
+  } catch (e) {
+    if (mode === "add" && isWriteConflict(e)) {
+      throw new Error(
+        `Destination already exists: ${path}. ` +
+          `Pass mode="overwrite" to replace it, or move/delete the existing file first.`,
+      );
+    }
+    throw e;
+  }
+}
+
+/** A Dropbox add-mode write collision surfaces as HTTP 409. The SDK's raw message
+ *  ("Response failed with a 409 code") is opaque; we translate it to actionable text. */
+function isWriteConflict(e: unknown): boolean {
+  return (e as { status?: number })?.status === 409;
 }
 
 async function handleMove(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
