@@ -21,10 +21,15 @@ All tool names are prefixed `dropbox_` to avoid collisions with other MCP server
 | `dropbox_restore_batch` | Restore multiple files in one call; reports per-path result. | No |
 | `dropbox_restore_revision` | Restore a specific revision ID (e.g., a known-good earlier version). | No |
 | `dropbox_download` | Force-download a file from Dropbox to the local sync folder, bypassing Smart Sync cloud-only state. | No |
+| `dropbox_upload` | Upload a single local file to Dropbox. Source defaults to the local-folder mirror of the destination path; `mode` add/overwrite. Rejects files >150 MB. | No |
+| `dropbox_move` | Move or rename a file/folder server-side (no download). `autorename` to avoid collisions. | No |
+| `dropbox_delete` | Delete a file or folder (goes to trash; recoverable via `dropbox_restore` for ~30 days). | No |
 | `dropbox_search` | Search by filename or content across the account. Returns path, size, modified date. | Yes |
 | `dropbox_list_deleted` | List deleted entries in a folder (optionally recursive). Input for restore workflows. | Yes |
 | `dropbox_file_info` | Return size, modified time, revision ID, and content hash for a path. | Yes |
 | `dropbox_list_revisions` | List up to 100 revisions of a file with rev ID, size, and modified time. | Yes |
+
+**Atomic single-file ops vs. bulk sync**: these tools are for one-file or interactive operations. For syncing or sorting whole folders (10s–1000s of files), use the companion `dropbox` skill's `dbx_sync.py` (bulk, move-aware, plan→review→execute). The split: this server is the atomic + recovery layer; the skill is the orchestration layer.
 
 ---
 
@@ -156,14 +161,29 @@ Agent: dropbox_list_revisions(path="/report.docx", limit=5)
 Agent: dropbox_restore_revision(path="/report.docx", rev="0123abc")
 ```
 
+**Upload, move, and delete a single file:**
+
+```
+Agent: dropbox_upload(path="/Misc/notes.md", mode="overwrite")
+Result: Uploaded: /Misc/notes.md (2048 bytes, mode: overwrite)
+
+Agent: dropbox_move(from_path="/Misc/notes.md", to_path="/Misc/Archive/notes.md")
+Result: Moved: /Misc/notes.md -> /Misc/Archive/notes.md
+
+Agent: dropbox_delete(path="/Misc/Archive/old-draft.md")
+Result: Deleted: /Misc/Archive/old-draft.md (recoverable via dropbox_restore for ~30 days)
+```
+
 ---
 
 ## Security notes
 
 - The `.env` file holds long-lived credentials — keep it out of version control
   (the default `.gitignore` already excludes `.env` files).
-- Restore and download tools mutate Dropbox state or overwrite local files.
-  Agents should confirm intent before invoking them, especially `dropbox_restore_batch`.
+- Mutating tools (restore, download, **upload, move, delete**) change Dropbox or
+  local state. Agents should confirm intent before invoking them — especially
+  `dropbox_delete` on a folder (removes all contents) and `dropbox_restore_batch`.
+  Deletes go to Dropbox trash and are recoverable via `dropbox_restore` for ~30 days.
 - The server binds to no network ports — communication is stdio only. The only
   outbound connection is to `api.dropbox.com` over HTTPS.
 - Logs go to stderr, never stdout (stdout is reserved for MCP protocol frames).

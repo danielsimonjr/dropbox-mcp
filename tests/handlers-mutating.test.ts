@@ -4,7 +4,12 @@ import type { DropboxConfig } from "../src/dropbox.js";
 
 vi.mock("node:fs", async (importActual) => {
   const actual = await importActual<typeof import("node:fs")>();
-  return { ...actual, mkdirSync: vi.fn(), writeFileSync: vi.fn() };
+  return {
+    ...actual,
+    mkdirSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    readFileSync: vi.fn(() => Buffer.from("file contents")),
+  };
 });
 
 const config: DropboxConfig = {
@@ -58,5 +63,48 @@ describe("handleDownload", () => {
     const out = await HANDLERS["dropbox_download"](client, config, { path: "/sub/a.txt" });
     expect(out).toContain("Downloaded: /sub/a.txt -> ");
     expect(out).toContain("(12 bytes)");
+  });
+});
+
+describe("handleUpload", () => {
+  it("uploads a file and reports size + mode", async () => {
+    const client = fake({
+      filesUpload: async () => ({ result: { path_display: "/sub/a.txt", size: 13 } }),
+    });
+    const out = await HANDLERS["dropbox_upload"](client, config, { path: "/sub/a.txt" });
+    expect(out).toBe("Uploaded: /sub/a.txt (13 bytes, mode: add)");
+  });
+  it("passes the requested write mode through", async () => {
+    const seen: Record<string, unknown> = {};
+    const client = fake({
+      filesUpload: async (args: Record<string, unknown>) => {
+        Object.assign(seen, args);
+        return { result: { path_display: "/a.txt", size: 13 } };
+      },
+    });
+    const out = await HANDLERS["dropbox_upload"](client, config, { path: "/a.txt", mode: "overwrite" });
+    expect((seen.mode as { ".tag": string })[".tag"]).toBe("overwrite");
+    expect(out).toContain("mode: overwrite");
+  });
+});
+
+describe("handleMove", () => {
+  it("moves a file and reports from -> to", async () => {
+    const client = fake({
+      filesMoveV2: async () => ({ result: { metadata: { path_display: "/B/a.txt" } } }),
+    });
+    const out = await HANDLERS["dropbox_move"](client, config, { from_path: "/A/a.txt", to_path: "/B/a.txt" });
+    expect(out).toBe("Moved: /A/a.txt -> /B/a.txt");
+  });
+});
+
+describe("handleDelete", () => {
+  it("deletes a path and notes recoverability", async () => {
+    const client = fake({
+      filesDeleteV2: async () => ({ result: { metadata: { path_display: "/A/a.txt" } } }),
+    });
+    const out = await HANDLERS["dropbox_delete"](client, config, { path: "/A/a.txt" });
+    expect(out).toContain("Deleted: /A/a.txt");
+    expect(out).toContain("recoverable via dropbox_restore");
   });
 });

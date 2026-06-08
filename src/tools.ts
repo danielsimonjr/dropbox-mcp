@@ -2,13 +2,17 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { Dropbox } from "dropbox";
 import type { DropboxConfig } from "./dropbox.js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   bytesToMb, formatSearch, formatListDeleted, formatFileInfo, formatListRevisions,
   formatRestore, formatRestoreBatch, formatRestoreRevision, formatDownload,
+  formatUpload, formatMove, formatDelete,
   type SearchMatch,
 } from "./format.js";
+
+/** Dropbox single-request upload limit. Larger files need an upload session. */
+const MAX_SINGLE_UPLOAD = 150 * 1024 * 1024;
 
 const str = (description: string) => ({ type: "string" as const, description });
 const ro = { readOnlyHint: true };
@@ -45,6 +49,44 @@ export const TOOLS: Tool[] = [
     name: "dropbox_download",
     description: "Force-download a file from Dropbox servers to the local Dropbox folder. Useful when Smart Sync keeps files cloud-only.",
     inputSchema: { type: "object", properties: { path: str("Dropbox path of the file to download") }, required: ["path"] },
+    annotations: destructive,
+  },
+  {
+    name: "dropbox_upload",
+    description: "Upload a local file to Dropbox (single file, atomic). Source defaults to the local Dropbox-folder mirror of `path`; pass `local_path` to upload an arbitrary local file. Mode 'add' (default) fails if the destination exists; 'overwrite' replaces it. Files larger than 150 MB are rejected (Dropbox requires a chunked upload session for those — use the desktop client). For bulk uploads of many files, use the dropbox skill's dbx_sync.py instead.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: str("Dropbox destination path, e.g. /Misc/report.pdf"),
+        local_path: str("Local source file path (default: <local Dropbox folder>/<path>)"),
+        mode: { type: "string", enum: ["add", "overwrite"], description: "add = fail if destination exists (default); overwrite = replace it" },
+      },
+      required: ["path"],
+    },
+    annotations: destructive,
+  },
+  {
+    name: "dropbox_move",
+    description: "Move or rename a file or folder on Dropbox server-side (no download/re-upload). Use for cross-folder relocation or renaming. Set autorename=true to auto-rename instead of failing when the destination already exists.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from_path: str("Current Dropbox path"),
+        to_path: str("New Dropbox path"),
+        autorename: { type: "boolean", description: "If destination exists, auto-rename instead of failing (default false)" },
+      },
+      required: ["from_path", "to_path"],
+    },
+    annotations: destructive,
+  },
+  {
+    name: "dropbox_delete",
+    description: "Delete a file or folder on Dropbox. The item moves to Dropbox trash and is recoverable via dropbox_restore for ~30 days (longer on some plans). Deleting a folder removes all of its contents. Confirm intent before deleting folders.",
+    inputSchema: {
+      type: "object",
+      properties: { path: str("Dropbox path of the file or folder to delete") },
+      required: ["path"],
+    },
     annotations: destructive,
   },
   {
@@ -221,11 +263,50 @@ async function handleDownload(client: Dropbox, config: DropboxConfig, raw: unkno
   return formatDownload(path, localPath, res.result.size);
 }
 
+async function handleUpload(client: Dropbox, config: DropboxConfig, raw: unknown): Promise<string> {
+  const { path, local_path, mode } = z
+    .object({
+      path: z.string(),
+      local_path: z.string().optional(),
+      mode: z.enum(["add", "overwrite"]).default("add"),
+    })
+    .parse(raw);
+  const src = local_path ?? join(config.localPath, path.replace(/^\/+/, ""));
+  const data = readFileSync(src);
+  if (data.length > MAX_SINGLE_UPLOAD) {
+    throw new Error(
+      `File too large for single-request upload (${data.length} bytes > 150 MB). ` +
+        `Use the Dropbox desktop client or a chunked-upload session for files this size.`,
+    );
+  }
+  const res = await client.filesUpload({ path, contents: data, mode: { ".tag": mode } });
+  return formatUpload(res.result.path_display ?? path, res.result.size, mode);
+}
+
+async function handleMove(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { from_path, to_path, autorename } = z
+    .object({ from_path: z.string(), to_path: z.string(), autorename: z.boolean().default(false) })
+    .parse(raw);
+  const res = await client.filesMoveV2({ from_path, to_path, autorename });
+  const dest = (res.result.metadata as { path_display?: string }).path_display ?? to_path;
+  return formatMove(from_path, dest);
+}
+
+async function handleDelete(client: Dropbox, _c: DropboxConfig, raw: unknown): Promise<string> {
+  const { path } = z.object({ path: z.string() }).parse(raw);
+  const res = await client.filesDeleteV2({ path });
+  const deleted = (res.result.metadata as { path_display?: string }).path_display ?? path;
+  return formatDelete(deleted);
+}
+
 export const HANDLERS: Record<string, ToolHandler> = {
   dropbox_restore: handleRestore,
   dropbox_restore_batch: handleRestoreBatch,
   dropbox_restore_revision: handleRestoreRevision,
   dropbox_download: handleDownload,
+  dropbox_upload: handleUpload,
+  dropbox_move: handleMove,
+  dropbox_delete: handleDelete,
   dropbox_search: handleSearch,
   dropbox_list_deleted: handleListDeleted,
   dropbox_file_info: handleFileInfo,

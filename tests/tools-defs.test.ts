@@ -2,10 +2,13 @@ import { describe, it, expect } from "vitest";
 import { TOOLS } from "../src/tools.js";
 
 const READ_ONLY = ["dropbox_search", "dropbox_list_deleted", "dropbox_file_info", "dropbox_list_revisions"];
-const DESTRUCTIVE = ["dropbox_restore", "dropbox_restore_batch", "dropbox_restore_revision", "dropbox_download"];
+const DESTRUCTIVE = [
+  "dropbox_restore", "dropbox_restore_batch", "dropbox_restore_revision", "dropbox_download",
+  "dropbox_upload", "dropbox_move", "dropbox_delete",
+];
 
 describe("TOOLS", () => {
-  it("defines exactly the 8 expected tools", () => {
+  it("defines exactly the 11 expected tools", () => {
     expect(TOOLS.map((t) => t.name).sort()).toEqual([...READ_ONLY, ...DESTRUCTIVE].sort());
   });
   it("every tool has a non-empty description and an object input schema", () => {

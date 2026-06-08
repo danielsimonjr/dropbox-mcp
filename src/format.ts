@@ -37,6 +37,18 @@ export function formatDownload(path: string, localPath: string, size: number): s
   return `Downloaded: ${path} -> ${localPath} (${size} bytes)`;
 }
 
+export function formatUpload(path: string, size: number, mode: string): string {
+  return `Uploaded: ${path} (${size} bytes, mode: ${mode})`;
+}
+
+export function formatMove(fromPath: string, toPath: string): string {
+  return `Moved: ${fromPath} -> ${toPath}`;
+}
+
+export function formatDelete(path: string): string {
+  return `Deleted: ${path} (recoverable via dropbox_restore for ~30 days)`;
+}
+
 export function formatSearch(query: string, matches: SearchMatch[]): string {
   if (matches.length === 0) return `No results for '${query}'`;
   const lines = [`Found ${matches.length} results for '${query}':`];
