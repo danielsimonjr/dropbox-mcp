@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-06-26
+
+### Security
+- **Path traversal hardening.** `dropbox_download` and `dropbox_upload` derived a local file path with `join(config.localPath, path.replace(/^\/+/, ""))`, which only stripped leading slashes — a Dropbox path like `/../../etc/passwd` escaped the sync root and could read/write arbitrary disk locations. Both now resolve through `resolveLocalPath`, which rejects any path that escapes `config.localPath` (covers `..` segments and the Windows cross-drive case). The explicit `local_path` upload override is unchanged. Covered by new tests in `tests/handlers-mutating.test.ts`.
+
+## [0.3.1] - 2026-06-08
+
+### Changed
+- `dropbox_upload` returns a friendlier, actionable message on an add-mode write conflict (HTTP 409), pointing to `mode="overwrite"`.
+
+## [0.3.0] - 2026-06-08
+
+### Added
+- Atomic mutating tools: `dropbox_upload`, `dropbox_move`, `dropbox_delete`.
+
 ## [0.2.0] - 2026-05-21
 
 ### Changed

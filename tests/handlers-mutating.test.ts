@@ -110,6 +110,37 @@ describe("handleUpload", () => {
   });
 });
 
+describe("local path traversal protection", () => {
+  it("download refuses a Dropbox path that escapes the sync root", async () => {
+    const client = fake({
+      filesDownload: async () => ({ result: { size: 1, fileBinary: Buffer.from("x") } }),
+    });
+    await expect(
+      HANDLERS["dropbox_download"](client, config, { path: "/../../etc/passwd" }),
+    ).rejects.toThrow(/outside the Dropbox sync root/);
+  });
+  it("upload refuses a derived local path that escapes the sync root", async () => {
+    const client = fake({ filesUpload: async () => ({ result: { size: 1 } }) });
+    await expect(
+      HANDLERS["dropbox_upload"](client, config, { path: "/../../etc/passwd" }),
+    ).rejects.toThrow(/outside the Dropbox sync root/);
+  });
+  it("still allows an explicit local_path override outside the sync root", async () => {
+    const seen: Record<string, unknown> = {};
+    const client = fake({
+      filesUpload: async (args: Record<string, unknown>) => {
+        Object.assign(seen, args);
+        return { result: { path_display: "/a.txt", size: 5 } };
+      },
+    });
+    const out = await HANDLERS["dropbox_upload"](client, config, {
+      path: "/a.txt",
+      local_path: "/some/other/place/a.txt",
+    });
+    expect(out).toContain("Uploaded: /a.txt");
+  });
+});
+
 describe("handleMove", () => {
   it("moves a file and reports from -> to", async () => {
     const client = fake({

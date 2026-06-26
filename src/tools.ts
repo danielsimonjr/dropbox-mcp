@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Dropbox } from "dropbox";
 import type { DropboxConfig } from "./dropbox.js";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import {
   bytesToMb, formatSearch, formatListDeleted, formatFileInfo, formatListRevisions,
   formatRestore, formatRestoreBatch, formatRestoreRevision, formatDownload,
@@ -251,9 +251,22 @@ async function handleRestoreRevision(client: Dropbox, _c: DropboxConfig, raw: un
   return formatRestoreRevision(path, rev, res.result.size);
 }
 
+/** Map a Dropbox path to its local file path under config.localPath, rejecting any
+ *  path that escapes the sync root (e.g. "/../../etc/passwd"). Without this, a
+ *  caller-supplied Dropbox path could write to or read from arbitrary disk locations. */
+function resolveLocalPath(config: DropboxConfig, dropboxPath: string): string {
+  const root = resolve(config.localPath);
+  const target = resolve(root, dropboxPath.replace(/^\/+/, ""));
+  const rel = relative(root, target);
+  if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) {
+    throw new Error(`Refusing path outside the Dropbox sync root: ${dropboxPath}`);
+  }
+  return target;
+}
+
 async function handleDownload(client: Dropbox, config: DropboxConfig, raw: unknown): Promise<string> {
   const { path } = z.object({ path: z.string() }).parse(raw);
-  const localPath = join(config.localPath, path.replace(/^\/+/, ""));
+  const localPath = resolveLocalPath(config, path);
   mkdirSync(dirname(localPath), { recursive: true });
   const res = await client.filesDownload({ path });
   // On Node the download payload carries `fileBinary` (a Buffer) injected at runtime,
@@ -271,7 +284,7 @@ async function handleUpload(client: Dropbox, config: DropboxConfig, raw: unknown
       mode: z.enum(["add", "overwrite"]).default("add"),
     })
     .parse(raw);
-  const src = local_path ?? join(config.localPath, path.replace(/^\/+/, ""));
+  const src = local_path ?? resolveLocalPath(config, path);
   const data = readFileSync(src);
   if (data.length > MAX_SINGLE_UPLOAD) {
     throw new Error(
