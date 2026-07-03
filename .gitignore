@@ -55,3 +55,6 @@ desktop.ini
 
 node_modules/
 coverage/
+
+# SDD scratch (spec-driven-development working files, not shipped)
+.superpowers/

@@ -1,0 +1,16 @@
+{
+  "moves": [],
+  "downloads": [],
+  "uploads": [
+    {
+      "rel_path": "probe.txt",
+      "local_path": "C:\\Users\\danie\\Dropbox\\Misc\\_e2e_dropbox_test\\probe.txt",
+      "cloud_dest": "/Misc/_e2e_dropbox_test/probe.txt",
+      "size": 63
+    }
+  ],
+  "conflicts_keep_local": [],
+  "conflicts_keep_cloud": [],
+  "conflicts_flagged": [],
+  "flags": []
+}

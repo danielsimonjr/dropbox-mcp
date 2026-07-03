@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-07-03
+
+### Added
+- The `dropbox` skill now ships inside this plugin (`skills/dropbox/`): bulk
+  cloud↔local sync, loose-file sorting, dedup reconciliation, .dropboxignore
+  recipes — including its 5 Python orchestration scripts, which remain
+  scripts by design (complementary to the MCP tools, not redundant).
+
+### Note
+- `bundle/index.mjs` is unchanged (built at 0.3.2); its internal ctor version
+  string lags plugin.json intentionally — no server-code changes in 0.4.0.
+
 ## [0.3.2] - 2026-06-26
 
 ### Security
