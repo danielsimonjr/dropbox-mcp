@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "dropbox": "^10.34.0",
+    "dropbox": "^10.37.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
