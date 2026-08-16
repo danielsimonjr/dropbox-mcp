@@ -8,8 +8,15 @@ import { TOOLS, HANDLERS } from "./tools.js";
 const config = loadConfig();
 const client = getClient(config);
 
+// Injected by scripts/bundle.mjs via esbuild `define`, read from package.json at build
+// time. A hardcoded literal makes the running server report a stale version to every
+// client regardless of the manifests, and serverInfo is the ONLY version a client can
+// observe -- so a wrong one hides drift from every manifest-comparing sweep.
+declare const __PKG_VERSION__: string;
+const VERSION = typeof __PKG_VERSION__ !== "undefined" ? __PKG_VERSION__ : "0.0.0-dev";
+
 const server = new Server(
-  { name: "dropbox_mcp", version: "0.4.0" },
+  { name: "dropbox_mcp", version: VERSION },
   { capabilities: { tools: {} } },
 );
 
