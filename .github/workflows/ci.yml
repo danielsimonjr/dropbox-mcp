@@ -37,5 +37,5 @@ jobs:
       # --if-present: run each stage only if the repo defines it (universal template).
       - run: bun run --if-present typecheck
       - run: bun run --if-present lint
-      - run: bun run --if-present test
       - run: bun run --if-present build
+      - run: bun run --if-present test
