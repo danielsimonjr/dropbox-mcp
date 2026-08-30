@@ -1,8 +1,13 @@
 # dropbox-mcp
 
 An MCP (Model Context Protocol) server that exposes the Dropbox API as tools for
-LLM agents. Built on the [TypeScript MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)
-and the official [`dropbox`](https://www.npmjs.com/package/dropbox) npm SDK.
+LLM agents. Built on the [TypeScript MCP SDK v2](https://github.com/modelcontextprotocol/typescript-sdk)
+(`@modelcontextprotocol/server`) and the official [`dropbox`](https://www.npmjs.com/package/dropbox) npm SDK.
+
+Supports the **2026-07-28 protocol revision** (informally "MCP 2.0"): stateless
+per-request metadata, `server/discover` capability negotiation, and no session-scoped
+`initialize` handshake. Legacy 2025-era MCP clients continue to work on the same stdio
+transport.
 
 Focus: **recovery and discovery on an existing Dropbox account** — restoring deleted
 files, listing revisions, searching content, and force-downloading cloud-only files.

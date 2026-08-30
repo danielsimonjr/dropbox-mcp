@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP 2.0 (2026-07-28) protocol support.** Upgraded from
+  `@modelcontextprotocol/sdk` v1 to `@modelcontextprotocol/server` v2 and replaced
+  the hand-wired `server.connect(StdioServerTransport)` entry with `serveStdio`, which
+  negotiates the connection era on open. The server now speaks the stateless 2026-07-28
+  revision (per-request `_meta`, `server/discover`, no `initialize` handshake) while
+  still serving legacy 2025-era clients on the same stdio transport. Added protocol
+  integration tests that verify modern-era negotiation and tool listing.
+
 ### Security (2026-08-04)
 
 Lock-only via `npm update`; no manifest changed. Transitive dependencies of the
