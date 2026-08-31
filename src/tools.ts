@@ -1,4 +1,4 @@
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import type { Tool } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { Dropbox } from "dropbox";
 import type { DropboxConfig } from "./dropbox.js";

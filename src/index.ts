@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
+import { Server } from "@modelcontextprotocol/server";
 import { loadConfig, getClient } from "./dropbox.js";
 import { TOOLS, HANDLERS } from "./tools.js";
 
@@ -15,35 +14,41 @@ const client = getClient(config);
 declare const __PKG_VERSION__: string;
 const VERSION = typeof __PKG_VERSION__ !== "undefined" ? __PKG_VERSION__ : "0.0.0-dev";
 
-const server = new Server(
-  { name: "dropbox_mcp", version: VERSION },
-  { capabilities: { tools: {} } },
-);
+function buildServer(): Server {
+  const server = new Server(
+    { name: "dropbox_mcp", version: VERSION },
+    { capabilities: { tools: {} } },
+  );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+  server.setRequestHandler("tools/list", async () => ({ tools: TOOLS }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-  const handler = HANDLERS[name];
-  if (!handler) {
-    return { isError: true, content: [{ type: "text", text: `Unknown tool: ${name}` }] };
-  }
-  try {
-    const text = await handler(client, config, args ?? {});
-    return { content: [{ type: "text", text }] };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { isError: true, content: [{ type: "text", text: `Error in ${name}: ${msg}` }] };
-  }
-});
+  server.setRequestHandler("tools/call", async (request) => {
+    const { name, arguments: args } = request.params;
+    const handler = HANDLERS[name];
+    if (!handler) {
+      return { isError: true, content: [{ type: "text", text: `Unknown tool: ${name}` }] };
+    }
+    try {
+      const text = await handler(client, config, args ?? {});
+      return { content: [{ type: "text", text }] };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { isError: true, content: [{ type: "text", text: `Error in ${name}: ${msg}` }] };
+    }
+  });
 
-async function main(): Promise<void> {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("dropbox-mcp: connected on stdio");
+  return server;
 }
 
-main().catch((e) => {
-  console.error("dropbox-mcp: fatal:", e);
-  process.exit(1);
+const handle = serveStdio(buildServer, {
+  onerror: (error) => console.error("dropbox-mcp: error:", error),
+});
+
+console.error("dropbox-mcp: connected on stdio");
+
+process.on("SIGINT", () => {
+  handle.close().finally(() => process.exit(0));
+});
+process.on("SIGTERM", () => {
+  handle.close().finally(() => process.exit(0));
 });
