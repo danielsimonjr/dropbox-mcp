@@ -1,12 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
     commit-message:
       prefix: chore
-    labels: [dependencies, npm]
+    labels: [dependencies, bun]
 
   - package-ecosystem: github-actions
     directory: /

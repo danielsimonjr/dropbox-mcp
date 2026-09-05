@@ -3,6 +3,11 @@
   "version": "0.5.0",
   "description": "MCP server exposing Dropbox file recovery, search, download, upload, move, and delete operations to LLM agents.",
   "type": "module",
+  "packageManager": "bun@1.4.0",
+  "engines": {
+    "node": ">=24",
+    "bun": ">=1.4.0"
+  },
   "main": "./dist/index.js",
   "bin": {
     "dropbox-mcp": "dist/index.js"
@@ -16,7 +21,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "bundle": "node scripts/bundle.mjs"
+    "bundle": "bun scripts/bundle.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",

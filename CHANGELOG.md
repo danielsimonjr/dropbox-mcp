@@ -4,6 +4,12 @@
 
 ### Changed
 
+- **Bun toolchain for TypeScript development.** Install and scripts use Bun
+  (`bun install`, `bun run …`); `packageManager` / `engines` declare Bun ≥1.4 and
+  Node ≥24. Node remains the MCP server runtime — the Claude Code plugin still
+  launches `node …/bundle/index.mjs`. Docs and the `bundle` script no longer
+  assume npm/Node for the toolchain.
+
 - **MCP 2.0 (2026-07-28) protocol support.** Upgraded from
   `@modelcontextprotocol/sdk` v1 to `@modelcontextprotocol/server` v2 and replaced
   the hand-wired `server.connect(StdioServerTransport)` entry with `serveStdio`, which

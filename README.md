@@ -42,7 +42,9 @@ All tool names are prefixed `dropbox_` to avoid collisions with other MCP server
 
 ### Prerequisites
 
-- Node.js 24 or newer
+- [Bun](https://bun.sh) 1.4 or newer (package manager and script runner)
+- Node.js 24 or newer (MCP server runtime — the shipped `bundle/index.mjs` and
+  `dist/index.js` are launched with `node`)
 - A Dropbox account and a [Dropbox app](https://www.dropbox.com/developers/apps)
   with `files.content.read`, `files.content.write`, and `files.metadata.read` scopes
 
@@ -51,8 +53,8 @@ All tool names are prefixed `dropbox_` to avoid collisions with other MCP server
 ```bash
 git clone https://github.com/danielsimonjr/dropbox-mcp.git
 cd dropbox-mcp
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 The build emits `dist/index.js`, which is the entry point used below.
@@ -197,14 +199,19 @@ Result: Deleted: /Misc/Archive/old-draft.md (recoverable via dropbox_restore for
 
 ## Development
 
+Bun is the package manager and script driver; Node remains the long-lived MCP
+runtime (the Claude Code plugin entry still uses `node …/bundle/index.mjs`).
+
 ```bash
-npm run typecheck   # tsc --noEmit
-npm test            # vitest run (full suite)
-npm run build       # emit dist/
+bun run typecheck   # tsc --noEmit
+bun run test        # vitest run (full suite)
+bun run build       # emit dist/
+bun run bundle      # rebuild bundle/index.mjs (plugin artifact)
 ```
 
-The test suite covers config loading, every output formatter, the 8 tool handlers
-(both read-only and mutating), and a smoke test asserting `TOOLS↔HANDLERS` symmetry.
+The test suite covers config loading, every output formatter, the tool handlers
+(both read-only and mutating), protocol negotiation, and a smoke test asserting
+`TOOLS↔HANDLERS` symmetry.
 
 For changes to the tool surface, update both this README and `CHANGELOG.md` in the
 same commit.
