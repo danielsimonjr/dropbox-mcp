@@ -1,9 +1,9 @@
 // Build bundle/index.mjs -- the artifact the Claude Code plugin actually runs.
 //
 // WHY THIS FILE EXISTS. bundle/index.mjs was committed on 2026-07-02 and nothing in the
-// repo recorded how to rebuild it: `npm run build` runs plain `tsc` into dist/, esbuild
+// repo recorded how to rebuild it: `bun run build` runs plain `tsc` into dist/, esbuild
 // was not a dependency, and no script or workflow mentioned bundle/ at all. The deployed
-// artifact was therefore UNREPRODUCIBLE -- a dependency fix could reach package-lock.json
+// artifact was therefore UNREPRODUCIBLE -- a dependency fix could reach bun.lock
 // and dist/ while the file the plugin loads kept shipping the old code, with no gate
 // objecting because typecheck and the tests both run against src/.
 //
