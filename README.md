@@ -4,7 +4,8 @@ An MCP (Model Context Protocol) server that exposes the Dropbox API as tools for
 LLM agents. Built on the [TypeScript MCP SDK v2](https://github.com/modelcontextprotocol/typescript-sdk)
 (`@modelcontextprotocol/server`) and the official [`dropbox`](https://www.npmjs.com/package/dropbox) npm SDK.
 
-Supports the **2026-07-28 protocol revision** (informally "MCP 2.0"): stateless
+Built on `@modelcontextprotocol/server` v2. The negotiated protocol version is
+`2025-11-25` (the SDK's `LATEST_PROTOCOL_VERSION`): stateless
 per-request metadata, `server/discover` capability negotiation, and no session-scoped
 `initialize` handshake. Legacy 2025-era MCP clients continue to work on the same stdio
 transport.

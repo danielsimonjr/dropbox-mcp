@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
+import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/server";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -18,15 +19,16 @@ describe("MCP protocol", () => {
     client = undefined;
   });
 
-  it("negotiates the 2026-07-28 (MCP 2.0) era and lists tools", async () => {
-    client = new Client(
-      { name: "dropbox-mcp-test", version: "1.0.0" },
-      { versionNegotiation: { mode: { pin: "2026-07-28" } } },
-    );
+  it("negotiates the SDK's latest protocol version and lists tools", async () => {
+    // Do NOT pin a version. This test pinned "2026-07-28" and asserted the
+    // negotiated version equalled that pin, which is a version the SDK never
+    // offers -- so it failed on main with "the server did not offer pinned
+    // protocol version". Asserting LATEST_PROTOCOL_VERSION means the test tracks
+    // whatever the SDK actually speaks instead of a number typed into the test.
+    client = new Client({ name: "dropbox-mcp-test", version: "1.0.0" });
     await client.connect(spawnTransport());
 
-    expect(client.getProtocolEra()).toBe("modern");
-    expect(client.getNegotiatedProtocolVersion()).toBe("2026-07-28");
+    expect(client.getNegotiatedProtocolVersion()).toBe(LATEST_PROTOCOL_VERSION);
 
     const { tools } = await client.listTools();
     expect(tools).toHaveLength(11);

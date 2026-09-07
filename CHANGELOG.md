@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **A protocol test asserted a version the SDK never offers, and `main` was RED.**
+  `tests/protocol.test.ts` pinned `2026-07-28` and then asserted the negotiated
+  version equalled that pin, so it failed with "the server did not offer pinned
+  protocol version". It now opens an UNPINNED client and asserts against
+  `LATEST_PROTOCOL_VERSION`, so it tracks what the SDK actually speaks.
+
+- **Corrected the `2026-07-28` claim in README and the previous CHANGELOG entry.**
+  Verified by probing the built `dist/index.js` over stdio: `negotiated: 2025-11-25`,
+  11 tools. The package major and the protocol version are separate facts.
+
+### Changed
+
+- **Bun pinned to 1.4.2** in `packageManager`, `engines.bun` and the CI workflow --
+  all three together, since a manifest pin CI does not honour describes an install
+  nobody performs.
+
 ### Changed
 
 - **Bun toolchain for TypeScript development.** Install and scripts use Bun
@@ -10,10 +28,10 @@
   launches `node …/bundle/index.mjs`. Docs and the `bundle` script no longer
   assume npm/Node for the toolchain.
 
-- **MCP 2.0 (2026-07-28) protocol support.** Upgraded from
+- **MCP SDK v2 (package major).** Upgraded from
   `@modelcontextprotocol/sdk` v1 to `@modelcontextprotocol/server` v2 and replaced
   the hand-wired `server.connect(StdioServerTransport)` entry with `serveStdio`, which
-  negotiates the connection era on open. The server now speaks the stateless 2026-07-28
+  negotiates the connection era on open. The server speaks the stateless 2025-11-25
   revision (per-request `_meta`, `server/discover`, no `initialize` handshake) while
   still serving legacy 2025-era clients on the same stdio transport. Added protocol
   integration tests that verify modern-era negotiation and tool listing.
