@@ -1,6 +1,48 @@
 # Changelog
 
-## [Unreleased]
+## [0.6.0] - 2026-09-17
+
+### Changed
+
+- **The plugin now lives in `plugin/`.** The marketplace entry installed the whole
+  repository root. The root carries `package.json` and `bun.lock`, so Claude Code's
+  installer ran `bun install --frozen-lockfile --ignore-scripts` on every install, and
+  the cached plugin held **105.9 MB** of `node_modules` (107.2 MB total) - typescript,
+  vitest, esbuild and the coverage stack, none of which the shipped server runs. The installer has no omit-dev
+  option, so the only fix is to install a directory that has no lockfile.
+
+  `plugin/` now holds `.claude-plugin/plugin.json`, `.mcp.json`, `bundle/` and `skills/`
+  and NOTHING else - no `package.json`, no lockfile. The repository root keeps its own
+  `package.json` and `bun.lock` for development, and `scripts/bundle.mjs` writes to
+  `plugin/bundle/index.mjs`. The marketplace entry must become `git-subdir` with
+  `path: "plugin"`.
+
+  `bundle/index.mjs` is fully self-contained: it has **zero runtime externals**. Verified
+  by copying `plugin/` alone into an empty directory (no `node_modules` and no
+  `package.json` anywhere above it) and driving the real server over stdio - `initialize`
+  and `tools/list` succeed and return **11 tools**, the same 11 that `src/tools.ts`
+  defines. Repeated with every non-builtin `import` and `require` denied by a loader hook:
+  same result, zero denials. The guard is failure-capable - a control server doing
+  `require("typescript")` fails under it with `DENIED_EXTERNAL_REQUIRE: typescript`.
+
+### Changed
+
+- **`scripts/bundle.mjs` now writes to `plugin/bundle/index.mjs`, and only that.** This
+  branch was cut before `7657116` and independently added its own bundler to fix the same
+  defect - `bundle/index.mjs` was a committed artifact with no build, and it had drifted to
+  reporting `0.3.2` while `src/index.ts` said `0.4.0`. `main` fixed it first and fixed it
+  better: root-anchored `join(root, ...)` paths, the recovered-flags rationale, and the
+  load-bearing `createRequire` banner documented as such. **`main`'s version is kept in
+  full** and this branch changes one line of it - the output path - plus the header comment
+  and the console line that name it. The duplicate `src/index.ts` version-injection this
+  branch carried was dropped for the same reason: `main` already has it, with a better
+  comment.
+
+  Two consecutive rebuilds from the synced `src` are byte-identical
+  (`dd9b9beeec43d27f9cab4232f62020e138898c8580c37f134e65dc032bddff8c`), compared as
+  `git show HEAD:plugin/bundle/index.mjs | sha256sum` rather than by hashing the working
+  copy - on this machine git converts LF to CRLF on checkout, so a worktree hash can never
+  equal the committed blob and every such comparison reads as "stale".
 
 ### Fixed
 

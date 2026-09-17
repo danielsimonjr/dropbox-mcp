@@ -32924,7 +32924,7 @@ var HANDLERS = {
 // src/index.ts
 var config2 = loadConfig();
 var client = getClient(config2);
-var VERSION = true ? "0.5.0" : "0.0.0-dev";
+var VERSION = true ? "0.6.0" : "0.0.0-dev";
 function buildServer() {
   const server = new Server(
     { name: "dropbox_mcp", version: VERSION },

@@ -1,4 +1,4 @@
-// Build bundle/index.mjs -- the artifact the Claude Code plugin actually runs.
+// Build plugin/bundle/index.mjs -- the artifact the Claude Code plugin actually runs.
 //
 // WHY THIS FILE EXISTS. bundle/index.mjs was committed on 2026-07-02 and nothing in the
 // repo recorded how to rebuild it: `bun run build` runs plain `tsc` into dist/, esbuild
@@ -34,7 +34,10 @@ const banner =
 
 await build({
   entryPoints: [join(root, "src", "index.ts")],
-  outfile: join(root, "bundle", "index.mjs"),
+  // The plugin installs `plugin/` ALONE (git-subdir), so the artifact is built there.
+  // The repo root keeps package.json and bun.lock for development; the installed dir must
+  // carry neither, or Claude Code runs a dependency install into the plugin cache.
+  outfile: join(root, "plugin", "bundle", "index.mjs"),
   bundle: true,
   platform: "node",
   format: "esm",
@@ -52,4 +55,4 @@ await build({
   define: { __PKG_VERSION__: JSON.stringify(pkg.version) },
 });
 
-console.log(`bundled ${pkg.name} ${pkg.version} -> bundle/index.mjs`);
+console.log(`bundled ${pkg.name} ${pkg.version} -> plugin/bundle/index.mjs`);
